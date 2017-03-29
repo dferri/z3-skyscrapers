@@ -3,8 +3,6 @@ from random import randint
 import re
 import sys
 
-# TODO: USE DISTINCT
-
 def declare_edges_constants(n):
     """Dichiara tutte le variabili che rappresentano i grattacieli"""
     return ["(declare-const {}{} Int)".format(side, i)
@@ -21,22 +19,26 @@ def declare_constants_conditions(n):
     3) non ci siano ripetizioni su colonne
     """
     # siano compresi tra 1 e n
-    l1 = ["(assert (and (< 0 r{r}c{c}) (< r{r}c{c} {m})))".format(r=r, c=c, m=(n+1))
-          for r in range(n) for c in range(n)]
+    lst = []
+    lst.append("; Grattacieli compresi tra 1 e n")
+    for r in range(n):
+        for c in range(n):
+            lst.append("(assert (and (< 0 r{r}c{c}) (< r{r}c{c} {m})))".format(r=r, c=c, m=(n+1)))
 
 
     # non ci siano ripetizioni sulle righe
-    l2 = ["(assert (and (not (= r{i}c{h} r{i}c{k}))))"
-          .format(i=i, h=h, k=k)
-          for i in range(n) for (h,k) in combinations(range(n), 2)]
+    lst.append("; Niente ripetizioni sulle righe")
+    for i in range(n):
+        cons = " ".join(["r{i}c{c}".format(i=i, c=c) for c in range(n)])
+        lst.append("(assert (distinct {}))".format(cons))
 
     # non ci siano ripetizioni sulle colonne
-    l3 = ["(assert (and (not (= r{h}c{i} r{k}c{i}))))"
-          .format(i=i, h=h, k=k)
-          for i in range(n) for (h,k) in combinations(range(n), 2)]
-    return (["; Grattacieli compresi tra 1 e n"] + l1
-            + ["; Niente ripetizioni sulle righe"] + l2
-            + ["; Niente ripetizioni sulle colonne"] + l3)
+    lst.append("; Niente ripetizioni sulle colonne")
+    for i in range(n):
+        cons = " ".join(["r{r}c{i}".format(r=r, i=i) for r in range(n)])
+        lst.append("(assert (distinct {}))".format(cons))
+
+    return lst
 
 def print_maxer(n):
     """
@@ -70,7 +72,6 @@ def fun_counter(n):
 
 def fun_checker(n):
     """Costruisce la funzione che controlla che la griglia sia consistente"""
-
     args = " ".join(["(a{} Int)".format(i) for i in range(n)])
     declaration = "(define-fun counter ({} (tot Int)) Int".format(args)
 

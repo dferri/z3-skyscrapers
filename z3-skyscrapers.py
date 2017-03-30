@@ -8,12 +8,20 @@ def declare_edges_constants(n):
     return ["(declare-const {}{} Int)".format(side, i)
             for side in ["r", "u", "l", "d"] for i in range(n)]
 
-def declare_grid_constants(n):
-    """Dichiara tutte le variabili che rappresentano i grattacieli"""
-    return ["(declare-const r{}c{} Int)".format(r, c) for r in range(n) for c in range(n)]
+def declare_grid_fun(n):
+    """Dichiara tutte le variabili che rappresentano i grattacieli come una
+    funzione"""
+    lst = []
+    lst.append("(declare-fun rc (Int Int) Int)")
+    # Definita 0 al di fuori di [0, ..., n-1]x[0, ..., n-1]
+    lst.append("; Definita 0 al di fuori di [0, ..., n-1]x[0, ..., n-1]")
+    lst.append("(assert (forall ((r Int) (c Int)) (=> (or (< r 0) (>= r {})) (= (rc r c) 0))))".format(n))
+    lst.append("(assert (forall ((r Int) (c Int)) (=> (or (< c 0) (>= c {})) (= (rc r c) 0))))".format(n))
+    return lst
 
-def declare_constants_conditions(n):
-    """Dichiara le seguenti condizioni sulle variabili dei grattacieli:
+
+def declare_grid_conditions(n):
+    """Dichiara le seguenti condizioni sui grattacieli:
     1) siano tra 1 e n (compresi)
     2) non ci siano ripetizioni su righe
     3) non ci siano ripetizioni su colonne
@@ -21,21 +29,18 @@ def declare_constants_conditions(n):
     # siano compresi tra 1 e n
     lst = []
     lst.append("; Grattacieli compresi tra 1 e n")
-    for r in range(n):
-        for c in range(n):
-            lst.append("(assert (and (< 0 r{r}c{c}) (< r{r}c{c} {m})))".format(r=r, c=c, m=(n+1)))
-
+    lst.append("(assert (forall ((r Int) (c Int)) (=> (and (>= r 0) (< r {n}) (>= c 0) (< c {n})) (and (> (rc r c) 0) (<= (rc r c) {n})))))".format(n=n))
 
     # non ci siano ripetizioni sulle righe
     lst.append("; Niente ripetizioni sulle righe")
     for i in range(n):
-        cons = " ".join(["r{i}c{c}".format(i=i, c=c) for c in range(n)])
+        cons = " ".join(["(rc {i} {c})".format(i=i, c=c) for c in range(n)])
         lst.append("(assert (distinct {}))".format(cons))
 
     # non ci siano ripetizioni sulle colonne
     lst.append("; Niente ripetizioni sulle colonne")
     for i in range(n):
-        cons = " ".join(["r{r}c{i}".format(r=r, i=i) for r in range(n)])
+        cons = " ".join(["(rc {r} {i})".format(r=r, i=i) for r in range(n)])
         lst.append("(assert (distinct {}))".format(cons))
 
     return lst
@@ -61,6 +66,7 @@ def fun_counter(n):
     declaration = "(define-fun counter ({}) Int".format(args)
 
     lines = []
+    lines.append("; Conta grattacieli visibili")
     lines.append(declaration)
     lines.append("  (+ 1")
 
@@ -78,29 +84,27 @@ def fun_checker(n):
     # Check right side
     right = []
     for i in range(n):
-        counter_arg = " ".join(["r{}c{}".format(i, c) for c in range(n-1, -1, -1)])
+        counter_arg = " ".join(["(rc {} {})".format(i, c) for c in range(n-1, -1, -1)])
         right.append("(assert (= r{} (counter {arg})))".format(i, arg=counter_arg))
 
     # Check up side
     up = []
     for i in range(n):
-        counter_arg = " ".join(["r{}c{}".format(r, i) for r in range(n)])
+        counter_arg = " ".join(["(rc {} {})".format(r, i) for r in range(n)])
         up.append("(assert (= u{} (counter {arg})))".format(i, arg=counter_arg))
 
     # Check left side
     left = []
     for i in range(n):
-        counter_arg = " ".join(["r{}c{}".format(i, c) for c in range(n)])
+        counter_arg = " ".join(["(rc {} {})".format(i, c) for c in range(n)])
         left.append("(assert (= l{} (counter {arg})))".format(i, arg=counter_arg))
 
     # Check down side
     down = []
     for i in range(n):
-        counter_arg = " ".join(["r{}c{}".format(r, i) for r in range(n-1, -1, -1)])
+        counter_arg = " ".join(["(rc {} {})".format(r, i) for r in range(n-1, -1, -1)])
         down.append("(assert (= d{} (counter {arg})))".format(i, arg=counter_arg))
 
-
-    # lines[-1] = lines[-1] + "))"
     return (["; Check right side"] + right
             + ["; Check up side"] + up
             + ["; Check left side"] + left
@@ -114,7 +118,7 @@ def assert_hints(n, edges_hints, grid_hints):
         lst.append("(assert (= {}{} {}))".format(*e))
     lst.append("; Condizioni sui grattacieli")
     for g in grid_hints:
-        lst.append("(assert (= r{}c{} {}))".format(*g))
+        lst.append("(assert (= (rc {} {}) {}))".format(*g))
     return lst
 
 def main(n, edges_hints, grid_hints):
@@ -122,9 +126,9 @@ def main(n, edges_hints, grid_hints):
     print("\n".join(declare_edges_constants(n)))
     print("")
     print("; Grattacieli")
-    print("\n".join(declare_grid_constants(n)))
+    print("\n".join(declare_grid_fun(n)))
     print("")
-    print("\n".join(declare_constants_conditions(n)))
+    print("\n".join(declare_grid_conditions(n)))
     print("")
     print("; Functions")
     print("\n".join(fun_max()))
@@ -140,7 +144,6 @@ def main(n, edges_hints, grid_hints):
     print("(check-sat)")
     print("; (get-model)")
 
-# main(n)
 if __name__ == '__main__':
     n = 0
     edges_hints = []
